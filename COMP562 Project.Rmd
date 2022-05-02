@@ -20,6 +20,7 @@ library(dplyr)
 library(tidyverse)
 library(MASS)
 library(class)
+library(smotefamily)
 ```
 We clean the data and convert characters to factors:
 ```{r}
