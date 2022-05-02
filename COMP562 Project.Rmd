@@ -1,0 +1,87 @@
+---
+title: "COMP562 Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(caret)
+library(glmnet)
+library(dplyr)
+library(tidyverse)
+library(MASS)
+library(class)
+```
+We clean the data and convert characters to factors:
+```{r}
+data <- read.csv("data.csv")
+cols=names(Filter(is.character, data)) %>% unlist()
+data[cols]<-lapply(data[cols], factor)
+sapply(data, levels) 
+```
+Data cleaning and processing:
+```{r}
+diabetic.levels<- c("No", "No, borderline diabetes", "Yes (during pregnancy)", "Yes")
+data$Diabetic<- factor(data$Diabetic, levels = diabetic.levels) %>% as.numeric()
+genhealth.levels <- c("Poor", "Fair", "Good", "Very good", "Excellent")
+data$GenHealth <- factor(data$GenHealth, levels = genhealth.levels) %>% as.numeric()
+yesno.levels <- c("No","Yes")
+data$HeartDisease <- factor(data$HeartDisease, levels = yesno.levels) %>% as.numeric() - 1
+data$Smoking <- factor(data$Smoking, levels = yesno.levels) %>% as.numeric() - 1
+data$AlcoholDrinking <- factor(data$AlcoholDrinking, levels = yesno.levels) %>% as.numeric() - 1
+data$Stroke <- factor(data$Stroke, levels = yesno.levels) %>% as.numeric() - 1
+data$DiffWalking <- factor(data$DiffWalking, levels = yesno.levels) %>% as.numeric() - 1
+data$PhysicalActivity <- factor(data$PhysicalActivity, levels = yesno.levels) %>% as.numeric() - 1
+data$Asthma <- factor(data$Asthma, levels = yesno.levels) %>% as.numeric() - 1
+data$KidneyDisease <- factor(data$KidneyDisease, levels = yesno.levels) %>% as.numeric() - 1
+data$SkinCancer <- factor(data$SkinCancer, levels = yesno.levels) %>% as.numeric() - 1
+
+dummmy <- dummyVars(" ~ .", data = data)
+data<-data.frame(predict(dummmy, newdata = data))
+colnames(data)
+
+sum(is.na(data))
+```
+
+Split data with HeartDisease as response variable:
+```{r}
+set.seed(123)
+#data$HeartDisease <- as.factor(data$HeartDisease)
+indexes<- sample(1:nrow(data), 0.8*nrow(data))
+train<- data[indexes,]
+test<- data[-indexes,]
+y.train<- train$HeartDisease
+x.train<-as.matrix(subset(train, select = -c(HeartDisease)))
+y.test<- test$HeartDisease
+x.test<- as.matrix(subset(test, select = -c(HeartDisease)))
+```
+
+```{r}
+lasso.cv<-cv.glmnet(x.train, y.train, alpha = 1, family="binomial", nfolds=5)
+ridge.cv<-cv.glmnet(x.train, y.train, alpha = 0, family="binomial", nfolds=5)
+nelnet.cv<-cv.glmnet(x.train, y.train, alpha = .5, family="binomial", nfolds=5)
+
+lambda.lasso<-lasso.cv$lambda.1se
+lambda.ridge<-ridge.cv$lambda.1se
+lambda.nelnet<-nelnet.cv$lambda.1se
+
+lasso.predictions = predict(lasso.cv, s='lambda.1se', newx=x.test, type="class")
+ridge.predictions= predict(ridge.cv, s='lambda.1se', newx=x.test, type="class")
+nelnet.predictions= predict(nelnet.cv, s='lambda.1se', newx=x.test, type="class")
+
+table.lasso <- table(Predicted = lasso.predictions, Actual = y.test)
+table.ridge <- table(Predicted = ridge.predictions, Actual = y.test)
+table.nelnet <- table(Predicted = nelnet.predictions, Actual = y.test)
+table.lasso
+table.ridge
+table.nelnet
+lasso.accuracy<-mean(lasso.predictions==y.test)
+ridge.accuracy<-mean(ridge.predictions==y.test)
+nelnet.accuracy<-mean(nelnet.predictions==y.test)
+lasso.accuracy
+ridge.accuracy
+nelnet.accuracy
+```
