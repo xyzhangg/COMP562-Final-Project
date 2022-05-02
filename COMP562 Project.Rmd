@@ -87,8 +87,138 @@ table.nelnet
 lasso.accuracy<-mean(lasso.predictions==y.test)
 ridge.accuracy<-mean(ridge.predictions==y.test)
 nelnet.accuracy<-mean(nelnet.predictions==y.test)
+lasso.sensitivity <- (table.lasso[2,2]/sum(colSums(table.lasso)[2])) * 100
+ridge.sensitivity <- (table.ridge[2,2]/sum(colSums(table.lasso)[2])) * 100
+nelnet.sensitivity <- (table.nelnet[2,2]/sum(colSums(table.lasso)[2])) * 100
+lasso.specificity <- (table.lasso[1,1]/sum(colSums(table.lasso)[1])) * 100
+ridge.specificity <- (table.ridge[1,1]/sum(colSums(table.lasso)[1])) * 100
+nelnet.specificity <- (table.nelnet[1,1]/sum(colSums(table.lasso)[1])) * 100
+
 lasso.accuracy
+lasso.sensitivity
+lasso.specificity
+
 ridge.accuracy
+ridge.sensitivity
+ridge.specificity
+
 nelnet.accuracy
+nelnet.sensitivity
+nelnet.specificity
+```
 
+Note the classes are quite unbalanced- the number of eligible persons in the training set is more than 200 times the number of non-eligible persons. To address this imbalance, we use Synthetic Minority Oversampling Technique, or SMOTE for short. SMOTE selects an observation from the minority class at random, then selects k of its nearest neighbors also from the minority class. Then a new synthetic minority class observation is formed as a combination the two instances (He, Haibo, and Yunqian Ma.).
+```{r}
+hist(data$HeartDisease)
+```
+Now we repeat regression after balancing. We see that specificity went up after balancing:
+```{r}
+smote<- SMOTE(train[,-1],train$HeartDisease)
+train<- smote$data
+train$HeartDisease <- train$class %>% as.numeric()
+train$class<- NULL
+table(train$class)
+hist(train$HeartDisease)
+y.train<- train$HeartDisease
+x.train<-as.matrix(subset(train, select = -c(HeartDisease)))
+y.test<- test$HeartDisease
+x.test<- as.matrix(subset(test, select = -c(HeartDisease)))
+lasso.cv<-cv.glmnet(x.train, y.train, alpha = 1, family="binomial", nfolds=5)
+ridge.cv<-cv.glmnet(x.train, y.train, alpha = 0, family="binomial", nfolds=5)
+nelnet.cv<-cv.glmnet(x.train, y.train, alpha = .5, family="binomial", nfolds=5)
 
+lambda.lasso<-lasso.cv$lambda.1se
+lambda.ridge<-ridge.cv$lambda.1se
+lambda.nelnet<-nelnet.cv$lambda.1se
+
+lasso.predictions = predict(lasso.cv, s='lambda.1se', newx=x.test, type="class")
+ridge.predictions= predict(ridge.cv, s='lambda.1se', newx=x.test, type="class")
+nelnet.predictions= predict(nelnet.cv, s='lambda.1se', newx=x.test, type="class")
+
+table.lasso <- table(Predicted = lasso.predictions, Actual = y.test)
+table.ridge <- table(Predicted = ridge.predictions, Actual = y.test)
+table.nelnet <- table(Predicted = nelnet.predictions, Actual = y.test)
+table.lasso
+table.ridge
+table.nelnet
+lasso.accuracy<-mean(lasso.predictions==y.test)
+ridge.accuracy<-mean(ridge.predictions==y.test)
+nelnet.accuracy<-mean(nelnet.predictions==y.test)
+lasso.sensitivity <- (table.lasso[2,2]/sum(colSums(table.lasso)[2])) * 100
+ridge.sensitivity <- (table.ridge[2,2]/sum(colSums(table.lasso)[2])) * 100
+nelnet.sensitivity <- (table.nelnet[2,2]/sum(colSums(table.lasso)[2])) * 100
+lasso.specificity <- (table.lasso[1,1]/sum(colSums(table.lasso)[1])) * 100
+ridge.specificity <- (table.ridge[1,1]/sum(colSums(table.lasso)[1])) * 100
+nelnet.specificity <- (table.nelnet[1,1]/sum(colSums(table.lasso)[1])) * 100
+
+lasso.accuracy
+lasso.sensitivity
+lasso.specificity
+
+ridge.accuracy
+ridge.sensitivity
+ridge.specificity
+
+nelnet.accuracy
+nelnet.sensitivity
+nelnet.specificity
+```
+
+```{r}
+set.seed(123)
+lda.train <- subset(train, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
+lda.test <- subset(test, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
+lda.model <- lda(HeartDisease~., lda.train)
+lda.model
+lda.predictions <- predict(lda.model, lda.test)$class
+tab <- table(Predicted = lda.predictions, Actual = lda.test$HeartDisease)
+tab
+lda.accuracy <- sum(diag(tab)/(sum(rowSums(tab)))) * 100
+lda.accuracy
+lda.sensitivity <- (tab[2,2]/sum(colSums(tab)[2])) * 100
+lda.sensitivity
+lda.specificity <- (tab[1,1]/sum(colSums(tab)[1])) * 100
+lda.specificity
+```
+
+```{r}
+set.seed(123)
+qda.train <- subset(train, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
+qda.test <- subset(test, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
+qda.model <- qda(HeartDisease~., qda.train)
+qda.model
+qda.predictions <- predict(qda.model, qda.test)$class
+tab <- table(Predicted = qda.predictions, Actual = qda.test$HeartDisease)
+tab
+qda.accuracy <- sum(diag(tab)/(sum(rowSums(tab)))) * 100
+qda.accuracy
+qda.sensitivity <- (tab[2,2]/sum(colSums(tab)[2])) * 100
+qda.sensitivity
+qda.specificity <- (tab[1,1]/sum(colSums(tab)[1])) * 100
+qda.specificity
+```
+
+```{r}
+set.seed(123)
+knn.train <- train
+knn.test <- test
+norm <-function(x) { (x -min(x))/(max(x)-min(x))   }
+knn.train <- as.data.frame(lapply(knn.train, norm))
+knn.test <- as.data.frame(lapply(knn.test, norm))
+knn.target.category <- knn.train$HeartDisease
+knn.test.category <- knn.test$HeartDisease
+# ctrl <- trainControl(method="repeatedcv",repeats = 3)
+# knnFit <- train(HeartDisease ~ ., data = knn.train, method = "knn", trControl = ctrl, preProcess = c("center","scale"),tuneLength = 20)
+# knnFit
+# plot(knnFit)
+
+knn.model <- knn(knn.train,knn.test,cl=knn.target.category,k=9)
+tab <- table(Predicted = knn.model, Actual = knn.test.category)
+accuracy <- sum(diag(tab)/(sum(rowSums(tab)))) * 100
+accuracy
+sensitivity <- (tab[2,2]/sum(colSums(tab)[2])) * 100
+sensitivity
+specificity <- (tab[1,1]/sum(colSums(tab)[1])) * 100
+specificity
+tab
+```
