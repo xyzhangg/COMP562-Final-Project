@@ -22,14 +22,14 @@ library(MASS)
 library(class)
 library(smotefamily)
 ```
-We clean the data and convert characters to factors:
+### We clean the data and convert characters to factors:
 ```{r}
 data <- read.csv("data.csv")
 cols=names(Filter(is.character, data)) %>% unlist()
 data[cols]<-lapply(data[cols], factor)
 sapply(data, levels) 
 ```
-Data cleaning and processing:
+### Data cleaning and processing:
 ```{r}
 diabetic.levels<- c("No", "No, borderline diabetes", "Yes (during pregnancy)", "Yes")
 data$Diabetic<- factor(data$Diabetic, levels = diabetic.levels) %>% as.numeric()
@@ -53,10 +53,9 @@ colnames(data)
 sum(is.na(data))
 ```
 
-Split data with HeartDisease as response variable:
+### Split data with HeartDisease as response variable:
 ```{r}
 set.seed(123)
-#data$HeartDisease <- as.factor(data$HeartDisease)
 indexes<- sample(1:nrow(data), 0.8*nrow(data))
 train<- data[indexes,]
 test<- data[-indexes,]
@@ -85,9 +84,9 @@ table.nelnet <- table(Predicted = nelnet.predictions, Actual = y.test)
 table.lasso
 table.ridge
 table.nelnet
-lasso.accuracy<-mean(lasso.predictions==y.test)
-ridge.accuracy<-mean(ridge.predictions==y.test)
-nelnet.accuracy<-mean(nelnet.predictions==y.test)
+lasso.accuracy<-mean(lasso.predictions==y.test) * 100
+ridge.accuracy<-mean(ridge.predictions==y.test) * 100
+nelnet.accuracy<-mean(nelnet.predictions==y.test) * 100
 lasso.sensitivity <- (table.lasso[2,2]/sum(colSums(table.lasso)[2])) * 100
 ridge.sensitivity <- (table.ridge[2,2]/sum(colSums(table.lasso)[2])) * 100
 nelnet.sensitivity <- (table.nelnet[2,2]/sum(colSums(table.lasso)[2])) * 100
@@ -108,11 +107,12 @@ nelnet.sensitivity
 nelnet.specificity
 ```
 
-Note the classes are quite unbalanced- the number of eligible persons in the training set is more than 200 times the number of non-eligible persons. To address this imbalance, we use Synthetic Minority Oversampling Technique, or SMOTE for short. SMOTE selects an observation from the minority class at random, then selects k of its nearest neighbors also from the minority class. Then a new synthetic minority class observation is formed as a combination the two instances (He, Haibo, and Yunqian Ma.).
+### Note the classes are quite unbalanced in a sense that the number of positive heart disease cases in the training set is much more than negative cases. To address this imbalance, we use Synthetic Minority Oversampling Technique, or SMOTE for short. SMOTE selects an observation from the minority class at random, then selects k of its nearest neighbors also from the minority class. Then a new synthetic minority class observation is formed as a combination the two instances (He, Haibo, and Yunqian Ma.).
 ```{r}
 hist(data$HeartDisease)
 ```
-Now we repeat regression after balancing. We see that specificity went up after balancing:
+
+### Now we repeat regression after balancing. Upon charting the histogram, we see that training set data is much more balanced now with similar number of positive and negative heart disease data entries. We see that specificity went up after balancing:
 ```{r}
 smote<- SMOTE(train[,-1],train$HeartDisease)
 train<- smote$data
@@ -165,6 +165,7 @@ nelnet.sensitivity
 nelnet.specificity
 ```
 
+### Linear Discriminant Analysis:
 ```{r}
 set.seed(123)
 lda.train <- subset(train, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
@@ -182,6 +183,7 @@ lda.specificity <- (tab[1,1]/sum(colSums(tab)[1])) * 100
 lda.specificity
 ```
 
+### Quadratic Discriminant Analysis:
 ```{r}
 set.seed(123)
 qda.train <- subset(train, select=c(HeartDisease, BMI, PhysicalHealth, MentalHealth, GenHealth, SleepTime))
@@ -199,6 +201,7 @@ qda.specificity <- (tab[1,1]/sum(colSums(tab)[1])) * 100
 qda.specificity
 ```
 
+### K-Nearest Neighbors:
 ```{r}
 set.seed(123)
 knn.train <- train
@@ -208,10 +211,6 @@ knn.train <- as.data.frame(lapply(knn.train, norm))
 knn.test <- as.data.frame(lapply(knn.test, norm))
 knn.target.category <- knn.train$HeartDisease
 knn.test.category <- knn.test$HeartDisease
-# ctrl <- trainControl(method="repeatedcv",repeats = 3)
-# knnFit <- train(HeartDisease ~ ., data = knn.train, method = "knn", trControl = ctrl, preProcess = c("center","scale"),tuneLength = 20)
-# knnFit
-# plot(knnFit)
 
 knn.model <- knn(knn.train,knn.test,cl=knn.target.category,k=9)
 tab <- table(Predicted = knn.model, Actual = knn.test.category)
